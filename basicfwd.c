@@ -1,5 +1,5 @@
 /*-
- *   BSD LICENSE
+ * dasd  BSD LICENSE
  *
  *   Copyright(c) 2010-2015 Intel Corporation. All rights reserved.
  *   All rights reserved.
@@ -174,15 +174,12 @@ static __attribute__((noreturn)) void lcore_main(void) {
       const uint16_t nb_rx = rte_eth_rx_burst(port, 0, bufs, BURST_SIZE);
 
       for(i = 0; i < nb_rx; i++) {
-	//ETHERNET
 	ethdr = (struct ether_hdr*) rte_pktmbuf_mtod(bufs[i], struct ether_hdr*);
 	RTE_ASSERT(ethdr != NULL);
 	
-	//ARP
-	if(likely(ethdr->ether_type == rte_cpu_to_be_16(ETHER_TYPE_ARP))) {
+	if(unlikely(ethdr->ether_type == rte_cpu_to_be_16(ETHER_TYPE_ARP))) {
 	  arphdr = (struct arp_hdr*) rte_pktmbuf_mtod_offset(bufs[i], struct arp_hdr*, sizeof(struct ether_hdr));
 	  RTE_ASSERT(arphdr != NULL);
-	  // ARP REQUEST
 	  if(likely(arphdr->arp_op == rte_cpu_to_be_16(ARP_OP_REQUEST))) {
 	    arphdr->arp_op = rte_cpu_to_be_16(ARP_OP_REPLY);
 	    memcpy(&ethdr->d_addr, &ethdr->s_addr, sizeof(ethdr->s_addr));
@@ -192,18 +189,12 @@ static __attribute__((noreturn)) void lcore_main(void) {
 	    memcpy(&arphdr->arp_data.arp_sha, &ethdr->s_addr, sizeof(ethdr->s_addr));
 	    arphdr->arp_data.arp_sip = rte_cpu_to_be_32(MYIP);
 	  }
-	  //IPv4
 	} else if(likely(ethdr->ether_type == rte_cpu_to_be_16(ETHER_TYPE_IPv4))) {
-	  //iphdr = (struct ipv4_hdr*) rte_pktmbuf_adj(bufs[i], sizeof(struct ether_hdr));
 	  iphdr = (struct ipv4_hdr*) rte_pktmbuf_mtod_offset(bufs[i], struct ipv4_hdr*, sizeof(struct ether_hdr));
-	  //iphdr = (struct ipv4_hdr*) (ethdr + sizeof(struct ether_hdr));
 	  RTE_ASSERT(iphdr != NULL);
 	  
-	  //ICMP
-	  if(likely(iphdr->next_proto_id == IPPROTO_ICMP)) {
-	    //icmphdr = (struct icmp_hdr*) rte_pktmbuf_adj(bufs[i], sizeof(struct ipv4_hdr));
+	  if(unlikely(iphdr->next_proto_id == IPPROTO_ICMP)) {
 	    icmphdr = (struct icmp_hdr*) rte_pktmbuf_mtod_offset(bufs[i], struct ipv4_hdr*, sizeof(struct ether_hdr) + sizeof(struct ipv4_hdr));
-	    //icmphdr = (struct icmp_hdr*) (iphdr + sizeof(struct ipv4_hdr));
 	    RTE_ASSERT(icmphdr != NULL);
 
 	    memcpy(&ethdr->d_addr, &ethdr->s_addr, sizeof(ethdr->s_addr));
@@ -221,11 +212,12 @@ static __attribute__((noreturn)) void lcore_main(void) {
 	    uint16_t iphdrlen = (iphdr->version_ihl & IPV4_HDR_IHL_MASK) * IPV4_IHL_MULTIPLIER;
 
 	    icmphdr->icmp_cksum = 0;
-	    icmphdr->icmp_cksum = rte_cpu_to_be_16(~checksum(icmphdr, rte_be_to_cpu_16(iphdr->total_length) - iphdrlen)); 
-
-	    iphdr->hdr_checksum = 0;
-	    iphdr->hdr_checksum = rte_cpu_to_be_16(~checksum(iphdr, iphdrlen));
-	  } 
+	    uint16_t icmpcksum = rte_raw_cksum(icmphdr, rte_be_to_cpu_16(iphdr->total_length) - iphdrlen);
+	    icmphdr->icmp_cksum = icmpcksum == 0xFFFF ? icmpcksum : ~icmpcksum;
+	  }
+	  
+	  iphdr->hdr_checksum = 0;
+	  iphdr->hdr_checksum = rte_ipv4_cksum(iphdr); 
 	}
       }
       if (unlikely(nb_rx == 0))
