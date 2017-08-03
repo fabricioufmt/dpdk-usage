@@ -1,0 +1,17 @@
+# ==== pktget usage ===
+
+pktgen -c 0x3 -n 1 -- -T -P -m 1.0
+# -c <coremask>: hexadecimal bitmask of core to run on
+# -n <channels>: number of memory channels
+# --: separates EAL arguments to PKTGEN arguments
+# -T: enable color prompt
+# -P: enable promisc mode
+# -m 1.0: enable core 1 to operate rx/tx on port 0
+
+#PKTGEN command line arguments (0 : port):
+# set 0 dst mac <etheraddr>
+# set 0 count 1000
+# set 0 size 1500
+# set 0 pattern abc
+# start 0
+# stop 0
