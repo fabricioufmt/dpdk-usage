@@ -1,0 +1,13 @@
+/home/fabricio/fastclick/bin/click --dpdk -c 0x2 -n 1 -- /mnt/dpdk/simple-dysco/middlebox.click
+
+telnet 127.0.0.1 8012
+
+syntax: write dysco.add <priority> <sc_len> <chain [chain]> <filter>
+ex.: write dysco.add 10 2 1.1.1.1 3.3.3.3 dst tcp port 5001
+
+syntax: write dysco.remove <priority> <filter>
+ex.: write dysco.remove 10 dst tcp port 5001
+
+syntax: read dysco.list
+
+syntax: read dysco.program
